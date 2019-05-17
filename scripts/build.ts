@@ -1,0 +1,1 @@
+import '@jlekie/build-utils/compile';

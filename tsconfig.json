@@ -1,0 +1,22 @@
+{
+    "compilerOptions": {
+        "newLine": "LF",
+        "module": "commonjs",
+        "moduleResolution": "node",
+        "target": "esnext",
+        "strictPropertyInitialization": true,
+        "noImplicitAny": true,
+        "removeComments": true,
+        "preserveConstEnums": true,
+        "strictNullChecks": true,
+        "declaration": true,
+        "types": [ "node" ],
+
+        "baseUrl": ".",
+        "paths": {
+            "@": [ "./src" ],
+            "@/*": [ "./src/*" ]
+        }
+    },
+    "exclude": [ "node_modules", "dist" ]
+}

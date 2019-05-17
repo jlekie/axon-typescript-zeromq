@@ -1,0 +1,24 @@
+{
+  "name": "@jlekie/axon-zeromq",
+  "version": "0.0.1",
+  "main": "index.js",
+  "author": "Joe Lekie",
+  "license": "MIT",
+  "scripts": {
+    "build": "ts-node scripts/build.ts",
+    "start": "node dist/bin/run.js start"
+  },
+  "devDependencies": {
+    "@jlekie/build-utils": "^0.0.3",
+    "@types/node": "^10.12.5",
+    "@types/uuid": "^3.4.4",
+    "@types/zeromq": "^4.6.1",
+    "ts-node": "^7.0.1",
+    "tslint": "^5.11.0",
+    "typescript": "^3.1.6"
+  },
+  "dependencies": {
+    "uuid": "^3.3.2",
+    "zeromq": "^5.1.0"
+  }
+}
