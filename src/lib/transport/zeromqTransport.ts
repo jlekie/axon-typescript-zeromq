@@ -27,7 +27,9 @@ export class RouterServerTransport extends AServerTransport implements IRouterSe
     private socket: ZeroMQ.Socket | null;
 
     private receiveBuffer: Array<Message>;
+    private taggedReceiveBuffer: Map<string, Message>;
     private lastGetBufferedDataTimestamp: number;
+    private lastGetBufferedTaggedDataTimestamp: number;
 
     public constructor(endpoint: IZeroMQServerEndpoint) {
         super();
@@ -42,7 +44,9 @@ export class RouterServerTransport extends AServerTransport implements IRouterSe
         this.socket = null;
 
         this.receiveBuffer = [];
+        this.taggedReceiveBuffer = new Map();
         this.lastGetBufferedDataTimestamp = Date.now();
+        this.lastGetBufferedTaggedDataTimestamp = Date.now();
     }
 
     public listen() {
@@ -59,20 +63,20 @@ export class RouterServerTransport extends AServerTransport implements IRouterSe
         await this.runningTask;
     }
 
-    public send(data: Buffer, metadata: Map<string, Buffer>) {
+    public send(data: Buffer, metadata: Record<string, Buffer>) {
         if (!this.socket)
             throw new Error('Socket not ready');
 
-        const frames = new Map<string, Buffer>();
+        const frames: Record<string, Buffer> = {};
         let envelope: Buffer | undefined;
 
-        for (const key of metadata.keys()) {
+        for (const key in metadata) {
             switch (key) {
                 case 'envelope':
-                    envelope = metadata.get(key) as Buffer;
+                    envelope = metadata[key];
                     break;
                 default:
-                    frames.set(key, metadata.get(key) as Buffer);
+                    frames[key] = metadata[key];
                     break;
             }
         }
@@ -83,17 +87,72 @@ export class RouterServerTransport extends AServerTransport implements IRouterSe
 
         return Promise.resolve();
     }
+    public sendTagged(messageId: string, data: Buffer, metadata: Record<string, Buffer>) {
+        if (!this.socket)
+            throw new Error('Socket not ready');
+
+        const encodedRid = new Buffer(messageId, 'ascii');
+
+        const frames: Record<string, Buffer> = {};
+
+        let envelope: Buffer | undefined;
+        for (const key in metadata) {
+            switch (key) {
+                case 'envelope':
+                    envelope = metadata[key];
+                    break;
+                default:
+                    frames[key] = metadata[key];
+                    break;
+            }
+        }
+
+        frames['rid'] = encodedRid;
+
+        const message = new Message(0, frames, data, envelope);
+
+        this.socket.send(message.toZeroMQMessage(true));
+
+        return Promise.resolve();
+    }
+
     public async receive() {
         const message = await this.getBufferedData();
 
         const data = message.payload;
 
-        const metadata = new Map(message.frames);
+        const metadata = { ...message.frames };
         if (message.envelope)
-            metadata.set('envelope', message.envelope);
+            metadata['envelope'] = message.envelope;
 
         return { data, metadata };
     }
+    public async receiveTagged(messageId: string) {
+        const message = await this.getTaggedBufferedData(messageId);
+
+        const data = message.payload;
+
+        const metadata = { ...message.frames };
+        if (message.envelope)
+            metadata['envelope'] = message.envelope;
+
+        return { data, metadata };
+    }
+
+    public async receiveBufferedTagged() {
+        const taggedMessage = await this.getNextTaggedBufferedData();
+        const tag = taggedMessage.tag;
+        const message = taggedMessage.message;
+
+        const data = message.payload;
+
+        const metadata = { ...message.frames };
+        if (message.envelope)
+            metadata['envelope'] = message.envelope;
+
+        return { tag, data, metadata };
+    }
+
     public sendAndReceive(): Promise<() => Promise<IReceivedData>> {
         throw new Error(`Not Implemented`);
     }
@@ -104,7 +163,15 @@ export class RouterServerTransport extends AServerTransport implements IRouterSe
                 this.socket = ZeroMQ.socket('router');
 
                 this.socket.on('message', (...frames) => {
-                    this.receiveBuffer.push(Message.fromZeroMQMessage(frames, true));
+                    const message = Message.fromZeroMQMessage(frames, true);
+
+                    if (message.frames['rid'] !== undefined) {
+                        const rid = message.frames['rid'].toString('ascii');
+                        this.taggedReceiveBuffer.set(rid, message);
+                    }
+                    else {
+                        this.receiveBuffer.push(message);
+                    }
                 });
 
                 this.socket.on('listen', () => {
@@ -158,6 +225,73 @@ export class RouterServerTransport extends AServerTransport implements IRouterSe
                 }
 
                 // if ((Date.now() - this.lastGetBufferedDataTimestamp) > 1000)
+                    await defer();
+            }
+
+            throw new Error('Transport closed');
+        }
+    }
+
+    private async getTaggedBufferedData(rid: string, timeout?: number): Promise<Message> {
+        if (this.taggedReceiveBuffer.size > 0 && this.taggedReceiveBuffer.has(rid)) {
+            this.lastGetBufferedTaggedDataTimestamp = Date.now();
+
+            const message = this.taggedReceiveBuffer.get(rid) as Message;
+            this.taggedReceiveBuffer.delete(rid);
+
+            return message;
+        }
+        else {
+            const startTimestamp = Date.now();
+
+            while (this.isRunning) {
+                if (this.taggedReceiveBuffer.size > 0 && this.taggedReceiveBuffer.has(rid)) {
+                    this.lastGetBufferedTaggedDataTimestamp = Date.now();
+
+                    const message = this.taggedReceiveBuffer.get(rid) as Message;
+                    this.taggedReceiveBuffer.delete(rid);
+
+                    return message;
+                }
+                else if (timeout && (Date.now() - startTimestamp) > timeout) {
+                    throw new Error('Tagged message timeout');
+                }
+
+                // if ((Date.now() - this.lastGetBufferedTaggedDataTimestamp) > 1000)
+                    await defer();
+            }
+
+            throw new Error('Transport closed');
+        }
+    }
+    private async getNextTaggedBufferedData(timeout?: number): Promise<TaggedMessage> {
+        if (this.taggedReceiveBuffer.size > 0) {
+            this.lastGetBufferedTaggedDataTimestamp = Date.now();
+
+            const tag = this.taggedReceiveBuffer.keys().next().value;
+            const message = this.taggedReceiveBuffer.get(tag) as Message;
+            this.taggedReceiveBuffer.delete(tag);
+
+            return new TaggedMessage(tag, message);
+        }
+        else {
+            const startTimestamp = Date.now();
+
+            while (this.isRunning) {
+                if (this.taggedReceiveBuffer.size > 0) {
+                    this.lastGetBufferedTaggedDataTimestamp = Date.now();
+
+                    const tag = this.taggedReceiveBuffer.keys().next().value;
+                    const message = this.taggedReceiveBuffer.get(tag) as Message;
+                    this.taggedReceiveBuffer.delete(tag);
+
+                    return new TaggedMessage(tag, message);
+                }
+                else if (timeout && (Date.now() - startTimestamp) > timeout) {
+                    throw new Error('Tagged message timeout');
+                }
+
+                // if ((Date.now() - this.lastGetBufferedTaggedDataTimestamp) > 1000)
                     await defer();
             }
 
@@ -220,15 +354,15 @@ export class DealerClientTransport extends AClientTransport implements IDealerCl
         await this.runningTask;
     }
 
-    public send(data: Buffer, metadata: Map<string, Buffer>) {
+    public send(data: Buffer, metadata: Record<string, Buffer>) {
         if (!this.socket)
             throw new Error('Socket not ready');
 
         const encodedIdentity = new Buffer(this.identity, 'ascii');
 
-        const frames = new Map<string, Buffer>();
-        for (const key of metadata.keys()) {
-            frames.set(key, metadata.get(key) as Buffer);
+        const frames: Record<string, Buffer> = {};
+        for (const key in metadata) {
+            frames[key] = metadata[key];
         }
 
         const message = new Message(0, frames, data);
@@ -236,6 +370,25 @@ export class DealerClientTransport extends AClientTransport implements IDealerCl
 
         return Promise.resolve();
     }
+    public sendTagged(messageId: string, data: Buffer, metadata: Record<string, Buffer>) {
+        if (!this.socket)
+            throw new Error('Socket not ready');
+
+        const encodedRid = new Buffer(messageId, 'ascii');
+
+        const frames: Record<string, Buffer> = {};
+        for (const key in metadata) {
+            frames[key] = metadata[key];
+        }
+        frames['rid'] = encodedRid;
+
+        const message = new Message(0, frames, data);
+
+        this.socket.send(message.toZeroMQMessage(true));
+
+        return Promise.resolve();
+    }
+
     public async receive() {
         const message = await this.getBufferedData(30000);
 
@@ -245,11 +398,37 @@ export class DealerClientTransport extends AClientTransport implements IDealerCl
         }
 
         const data = message.payload;
-        const metadata = new Map(message.frames);
+        const metadata = { ...message.frames };
 
         return { data, metadata };
     }
-    public sendAndReceive(data: Buffer, metadata: Map<string, Buffer>): Promise<() => Promise<IReceivedData>> {
+    public async receiveTagged(messageId: string) {
+        const message = await this.getTaggedBufferedData(messageId, 30000);
+
+        if (message.signal !== 0) {
+            const errorMessage = message.payload.toString('utf8');
+            throw new Error(`Transport error (${message.signal}): ${errorMessage}`);
+        }
+
+        const data = message.payload;
+        const metadata = { ...message.frames };
+
+        return { data, metadata };
+    }
+
+    public async receiveBufferedTagged() {
+        const taggedMessage = await this.getNextTaggedBufferedData();
+        const tag = taggedMessage.tag;
+        const message = taggedMessage.message;
+
+        const data = message.payload;
+
+        const metadata = { ...message.frames };
+
+        return { tag, data, metadata };
+    }
+
+    public sendAndReceive(data: Buffer, metadata: Record<string, Buffer>): Promise<() => Promise<IReceivedData>> {
         if (!this.socket)
             throw new Error('Socket not ready');
 
@@ -258,8 +437,8 @@ export class DealerClientTransport extends AClientTransport implements IDealerCl
         const encodedRid = new Buffer(rid, 'ascii');
         const encodedIdentity = new Buffer(this.identity, 'ascii');
 
-        const frames = new Map<string, Buffer>(metadata);
-        frames.set('rid', encodedRid);
+        const frames = { ...metadata };
+        frames['rid'] = encodedRid;
 
         const message = new Message(0, frames, data);
         this.socket.send(message.toZeroMQMessage(true));
@@ -273,7 +452,7 @@ export class DealerClientTransport extends AClientTransport implements IDealerCl
             }
 
             const responsePayloadData = responseMessage.payload;
-            const responseMetadata = new Map(responseMessage.frames);
+            const responseMetadata = { ...responseMessage.frames };
 
             return new ReceivedData(responsePayloadData, responseMetadata);
         });
@@ -287,8 +466,8 @@ export class DealerClientTransport extends AClientTransport implements IDealerCl
                 this.socket.on('message', (...frames) => {
                     const message = Message.fromZeroMQMessage(frames, false);
 
-                    if (message.frames.has('rid')) {
-                        const rid = (message.frames.get('rid') as Buffer).toString('ascii');
+                    if (message.frames['rid'] !== undefined) {
+                        const rid = message.frames['rid'].toString('ascii');
                         this.taggedReceiveBuffer.set(rid, message);
                     }
                     else {
@@ -372,9 +551,13 @@ export class DealerClientTransport extends AClientTransport implements IDealerCl
     }
 
     private async getTaggedBufferedData(rid: string, timeout?: number): Promise<Message> {
-        if (this.taggedReceiveBuffer.size > 0) {
+        if (this.taggedReceiveBuffer.size > 0 && this.taggedReceiveBuffer.has(rid)) {
             this.lastGetBufferedTaggedDataTimestamp = Date.now();
-            return this.taggedReceiveBuffer.get(rid) as Message;
+
+            const message = this.taggedReceiveBuffer.get(rid) as Message;
+            this.taggedReceiveBuffer.delete(rid);
+
+            return message;
         }
         else {
             const startTimestamp = Date.now();
@@ -387,6 +570,40 @@ export class DealerClientTransport extends AClientTransport implements IDealerCl
                     this.taggedReceiveBuffer.delete(rid);
 
                     return message;
+                }
+                else if (timeout && (Date.now() - startTimestamp) > timeout) {
+                    throw new Error('Tagged message timeout');
+                }
+
+                // if ((Date.now() - this.lastGetBufferedTaggedDataTimestamp) > 1000)
+                    await defer();
+            }
+
+            throw new Error('Transport closed');
+        }
+    }
+    private async getNextTaggedBufferedData(timeout?: number): Promise<TaggedMessage> {
+        if (this.taggedReceiveBuffer.size > 0) {
+            this.lastGetBufferedTaggedDataTimestamp = Date.now();
+
+            const tag = this.taggedReceiveBuffer.keys().next().value;
+            const message = this.taggedReceiveBuffer.get(tag) as Message;
+            this.taggedReceiveBuffer.delete(tag);
+
+            return new TaggedMessage(tag, message);
+        }
+        else {
+            const startTimestamp = Date.now();
+
+            while (this.isRunning) {
+                if (this.taggedReceiveBuffer.size > 0) {
+                    this.lastGetBufferedTaggedDataTimestamp = Date.now();
+
+                    const tag = this.taggedReceiveBuffer.keys().next().value;
+                    const message = this.taggedReceiveBuffer.get(tag) as Message;
+                    this.taggedReceiveBuffer.delete(tag);
+
+                    return new TaggedMessage(tag, message);
                 }
                 else if (timeout && (Date.now() - startTimestamp) > timeout) {
                     throw new Error('Tagged message timeout');
@@ -415,7 +632,7 @@ async function defer() {
 
 class Message {
     public static fromZeroMQMessage(messageFrames: ReadonlyArray<Buffer>, dealerMessage: boolean): Message {
-        const frames = new Map<string, Buffer>();
+        const frames: Record<string, Buffer> =  {};
         let payload: Buffer | undefined;
         let envelope: Buffer | undefined;
 
@@ -438,7 +655,7 @@ class Message {
                     const name = partBuffer[0].toString('utf8');
                     const framePayload = partBuffer[1];
 
-                    frames.set(name, framePayload);
+                    frames[name] = framePayload;
                 }
                 else if (partBuffer.length === 0) {
                     payload = frame;
@@ -460,22 +677,22 @@ class Message {
         return new Message(signal, frames, payload, envelope);
     }
 
-    public readonly frames: Map<string, Buffer>;
+    public readonly frames: Record<string, Buffer>;
     public readonly payload: Buffer;
     public readonly envelope: Buffer | undefined;
     public readonly signal: number;
 
-    public constructor(signal: number, frames: Map<string, Buffer>, payload: Buffer, envelope?: Buffer) {
-        this.frames = new Map(frames);
+    public constructor(signal: number, frames: Record<string, Buffer>, payload: Buffer, envelope?: Buffer) {
+        this.frames = { ...frames };
         this.payload = payload;
         this.envelope = envelope;
         this.signal = signal;
     }
 
     public pluckFrame(key: string): Buffer | undefined {
-        if (this.frames.has(key)) {
-            const data = this.frames.get(key) as Buffer;
-            this.frames.delete(key);
+        if (this.frames[key] !== undefined) {
+            const data = this.frames[key];
+            delete this.frames[key];
 
             return data;
         }
@@ -491,14 +708,23 @@ class Message {
         signalBuffer.writeInt32BE(this.signal, 0);
         zeroMQMessage.push(signalBuffer);
 
-        for (const frameKey of this.frames.keys()) {
+        for (const frameKey in this.frames) {
             zeroMQMessage.push(Buffer.from(frameKey, 'ascii'));
-            zeroMQMessage.push(this.frames.get(frameKey) as Buffer);
+            zeroMQMessage.push(this.frames[frameKey]);
             zeroMQMessage.push(Buffer.alloc(0));
         }
 
         zeroMQMessage.push(this.payload);
 
         return zeroMQMessage;
+    }
+}
+class TaggedMessage {
+    public readonly tag: string;
+    public readonly message: Message;
+
+    public constructor(tag: string, message: Message) {
+        this.tag = tag;
+        this.message = message;
     }
 }
