@@ -1,12 +1,12 @@
 {
   "name": "@jlekie/axon-zeromq",
   "version": "0.0.1",
-  "main": "index.js",
+  "main": "dist/index.js",
   "author": "Joe Lekie",
   "license": "MIT",
   "scripts": {
-    "build": "ts-node scripts/build.ts",
-    "start": "node dist/bin/run.js start"
+    "build": "tsc --build",
+    "watch": "tsc --watch"
   },
   "devDependencies": {
     "@jlekie/build-utils": "^0.0.3",

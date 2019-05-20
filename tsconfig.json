@@ -10,13 +10,11 @@
         "preserveConstEnums": true,
         "strictNullChecks": true,
         "declaration": true,
-        "types": [ "node" ],
+        "skipLibCheck": true,
 
-        "baseUrl": ".",
-        "paths": {
-            "@": [ "./src" ],
-            "@/*": [ "./src/*" ]
-        }
+        "baseUrl": "src",
+        "outDir": "dist",
+        "incremental": true
     },
-    "exclude": [ "node_modules", "dist" ]
+    "include": [ "src" ]
 }
