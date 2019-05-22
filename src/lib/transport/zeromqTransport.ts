@@ -91,7 +91,7 @@ export class RouterServerTransport extends AServerTransport implements IRouterSe
         if (!this.socket)
             throw new Error('Socket not ready');
 
-        const encodedRid = new Buffer(messageId, 'ascii');
+        const encodedRid = Buffer.from(messageId, 'ascii');
 
         const frames: Record<string, Buffer> = {};
 
@@ -358,7 +358,7 @@ export class DealerClientTransport extends AClientTransport implements IDealerCl
         if (!this.socket)
             throw new Error('Socket not ready');
 
-        const encodedIdentity = new Buffer(this.identity, 'ascii');
+        const encodedIdentity = Buffer.from(this.identity, 'ascii');
 
         const frames: Record<string, Buffer> = {};
         for (const key in metadata) {
@@ -374,7 +374,7 @@ export class DealerClientTransport extends AClientTransport implements IDealerCl
         if (!this.socket)
             throw new Error('Socket not ready');
 
-        const encodedRid = new Buffer(messageId, 'ascii');
+        const encodedRid = Buffer.from(messageId, 'ascii');
 
         const frames: Record<string, Buffer> = {};
         for (const key in metadata) {
@@ -434,8 +434,8 @@ export class DealerClientTransport extends AClientTransport implements IDealerCl
 
         const rid = UuidV4();
 
-        const encodedRid = new Buffer(rid, 'ascii');
-        const encodedIdentity = new Buffer(this.identity, 'ascii');
+        const encodedRid = Buffer.from(rid, 'ascii');
+        // const encodedIdentity = Buffer.from(this.identity, 'ascii');
 
         const frames = { ...metadata };
         frames['rid'] = encodedRid;

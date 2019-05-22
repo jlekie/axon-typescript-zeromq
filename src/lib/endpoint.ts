@@ -18,7 +18,7 @@ export abstract class AZeroMQServerEndpoint extends AServerEndpoint implements I
     public abstract serialize(): string;
 
     public encode(): Buffer {
-        return new Buffer(this.serialize(), 'utf8');
+        return Buffer.from(this.serialize(), 'utf8');
     }
 }
 
@@ -55,7 +55,7 @@ export abstract class AZeroMQClientEndpoint extends AClientEndpoint implements I
     public abstract serialize(): string;
 
     public encode(): Buffer {
-        return new Buffer(this.serialize(), 'utf8');
+        return Buffer.from(this.serialize(), 'utf8');
     }
 }
 
