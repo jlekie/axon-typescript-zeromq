@@ -315,6 +315,9 @@ export class DealerClientTransport extends AClientTransport implements IDealerCl
     private lastGetBufferedDataTimestamp: number;
     private lastGetBufferedTaggedDataTimestamp: number;
 
+    private receiveCount: number = 0;
+    private sendCount: number = 0;
+
     public constructor(endpoint: IZeroMQClientEndpoint) {
         super();
 
@@ -368,6 +371,9 @@ export class DealerClientTransport extends AClientTransport implements IDealerCl
         const message = new Message(0, frames, data);
         this.socket.send(message.toZeroMQMessage(true));
 
+        // this.sendCount++;
+        // console.log(`SENT ${this.sendCount}`);
+
         return Promise.resolve();
     }
     public sendTagged(messageId: string, data: Buffer, metadata: Record<string, Buffer>) {
@@ -385,6 +391,9 @@ export class DealerClientTransport extends AClientTransport implements IDealerCl
         const message = new Message(0, frames, data);
 
         this.socket.send(message.toZeroMQMessage(true));
+
+        // this.sendCount++;
+        // console.log(`SENT ${this.sendCount}`);
 
         return Promise.resolve();
     }
@@ -465,6 +474,9 @@ export class DealerClientTransport extends AClientTransport implements IDealerCl
 
                 this.socket.on('message', (...frames) => {
                     const message = Message.fromZeroMQMessage(frames, false);
+
+                    // this.receiveCount++;
+                    // console.log(`RECEIVED ${this.receiveCount}`);
 
                     if (message.frames['rid'] !== undefined) {
                         const rid = message.frames['rid'].toString('ascii');
