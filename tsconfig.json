@@ -14,7 +14,8 @@
 
         "baseUrl": "src",
         "outDir": "dist",
-        "incremental": true
+        "incremental": true,
+        "tsBuildInfoFile": "tsconfig.tsbuildinfo"
     },
     "include": [ "src" ]
 }
