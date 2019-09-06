@@ -10,6 +10,7 @@
         "preserveConstEnums": true,
         "strictNullChecks": true,
         "declaration": true,
+        "sourceMap": true,
         "skipLibCheck": true,
 
         "baseUrl": "src",

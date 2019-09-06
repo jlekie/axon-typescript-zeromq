@@ -488,41 +488,43 @@ export class DealerClientTransport extends AClientTransport implements IDealerCl
                 });
 
                 this.socket.on('connect', () => {
-                    console.log(`Dealer socket connected to ${connectionString}`);
+                    // console.log(`Dealer socket connected to ${connectionString}`);
                     this.isConnected = true;
                 });
                 this.socket.on('disconnect', () => {
-                    console.log(`Dealer socket disconnected from ${connectionString}`);
+                    // console.log(`Dealer socket disconnected from ${connectionString}`);
                     this.isConnected = false;
                 });
                 this.socket.on('close', () => {
-                    console.log(`Dealer socket closed`);
+                    // console.log(`Dealer socket closed`);
                     this.isConnected = false;
                 });
 
-                console.log(`connecting ${connectionString}`);
+                console.log(`Connecting to ${connectionString}...`);
                 this.socket
-                    .monitor(500, 0)
+                    .monitor(undefined, 0)
                     .connect(connectionString);
 
                 const start = Date.now();
                 while (!this.isConnected) {
-                    if (Date.now() - start > 5000) {
-                        this.socket.close();
-                        throw new Error('Socket bind timeout');
+                    if (!this.isRunning || Date.now() - start > 30000) {
+                        this.socket.unmonitor().close();
+                        throw new Error(`Connection to ${connectionString} timed out`);
                     }
 
                     await delay(1000);
                 }
 
+                console.log(`Connected to ${connectionString}`);
+
                 while (this.isRunning && this.isConnected) {
                     await delay(1000);
                 }
 
-                console.log('disconnecting socket');
-                this.socket.close();
+                // console.log('disconnecting socket');
+                this.socket.unmonitor().close();
                 // this.socket.disconnect(connectionString);
-                console.log('disconnected');
+                // console.log('disconnected');
 
                 // while (this.isConnected) {
                 //     if (Date.now() - start > 10000)
@@ -530,10 +532,20 @@ export class DealerClientTransport extends AClientTransport implements IDealerCl
 
                 //     await delay(1000);
                 // }
+
+                if (this.isRunning)
+                    console.log(`Socket disconnected from ${connectionString}, reconnecting...`);
             }
             catch (err) {
-                console.log(err.toString());
+                console.log(`Socket error [${err.toString()}], reconnecting...`);
             }
+            // finally {
+            //     if (this.socket) {
+            //         // console.log('unmonitor socket');
+            //         this.socket.unmonitor();
+            //         // console.log('unmonitor');
+            //     }
+            // }
         }
     }
 
