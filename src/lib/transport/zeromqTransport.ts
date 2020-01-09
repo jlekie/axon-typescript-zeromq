@@ -386,7 +386,7 @@ export class DealerClientTransport extends AClientTransport implements IDealerCl
         for (const key in metadata) {
             frames[key] = metadata[key];
         }
-        frames['rid'] = encodedRid;
+        frames[`rid[${this.identity}]`] = encodedRid;
 
         const message = new Message(0, frames, data);
 
@@ -477,9 +477,9 @@ export class DealerClientTransport extends AClientTransport implements IDealerCl
 
                     // this.receiveCount++;
                     // console.log(`RECEIVED ${this.receiveCount}`);
+                    if (message.frames[`rid[${this.identity}]`] !== undefined) {
+                        const rid = message.frames[`rid[${this.identity}]`].toString('ascii');
 
-                    if (message.frames['rid'] !== undefined) {
-                        const rid = message.frames['rid'].toString('ascii');
                         this.taggedReceiveBuffer.set(rid, message);
                     }
                     else {
