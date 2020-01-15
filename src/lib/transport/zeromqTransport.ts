@@ -1,7 +1,8 @@
+import * as _ from 'lodash';
 import * as ZeroMQ from 'zeromq';
 import * as UuidV4 from 'uuid/v4';
 
-import { ITransport, IClientTransport, IServerTransport, AClientTransport, AServerTransport, IReceivedData, ReceivedData } from '@jlekie/axon';
+import { ITransport, IClientTransport, IServerTransport, AClientTransport, AServerTransport, IReceivedData, ReceivedData, TransportMessage, VolatileTransportMetadata, VolatileTransportMetadataFrame } from '@jlekie/axon';
 import { IZeroMQServerEndpoint, IZeroMQClientEndpoint } from '../endpoint';
 
 export interface IZeroMQTransport extends ITransport {
@@ -13,12 +14,10 @@ export interface IRouterServerTransport extends IServerTransport {
 
 export interface IDealerClientTransport extends IClientTransport {
     readonly endpoint: IZeroMQClientEndpoint;
-    readonly identity: string;
 }
 
 export class RouterServerTransport extends AServerTransport implements IRouterServerTransport {
     public readonly endpoint: IZeroMQServerEndpoint;
-    public readonly identity: string;
 
     private isRunning: boolean;
     private runningTask: Promise<void> | null;
@@ -35,7 +34,6 @@ export class RouterServerTransport extends AServerTransport implements IRouterSe
         super();
 
         this.endpoint = endpoint;
-        this.identity = UuidV4();
 
         this.isRunning = false;
         this.runningTask = null;
@@ -302,7 +300,6 @@ export class RouterServerTransport extends AServerTransport implements IRouterSe
 
 export class DealerClientTransport extends AClientTransport implements IDealerClientTransport {
     public readonly endpoint: IZeroMQClientEndpoint;
-    public readonly identity: string;
 
     private isRunning: boolean;
     private runningTask: Promise<void> | null;
@@ -322,8 +319,6 @@ export class DealerClientTransport extends AClientTransport implements IDealerCl
         super();
 
         this.endpoint = endpoint;
-
-        this.identity = UuidV4();
 
         this.isRunning = false;
         this.runningTask = null;
@@ -371,6 +366,8 @@ export class DealerClientTransport extends AClientTransport implements IDealerCl
         const message = new Message(0, frames, data);
         this.socket.send(message.toZeroMQMessage(true));
 
+        this.messageSentEvent.emit(new TransportMessage(data, new VolatileTransportMetadata(_.map(frames, (data, key) => new VolatileTransportMetadataFrame(key, data)))));
+
         // this.sendCount++;
         // console.log(`SENT ${this.sendCount}`);
 
@@ -387,6 +384,8 @@ export class DealerClientTransport extends AClientTransport implements IDealerCl
             frames[key] = metadata[key];
         }
         frames[`rid[${this.identity}]`] = encodedRid;
+
+        this.messageSentEvent.emit(new TransportMessage(data, new VolatileTransportMetadata(_.map(frames, (data, key) => new VolatileTransportMetadataFrame(key, data)))));
 
         const message = new Message(0, frames, data);
 
@@ -409,6 +408,8 @@ export class DealerClientTransport extends AClientTransport implements IDealerCl
         const data = message.payload;
         const metadata = { ...message.frames };
 
+        this.messageReceivedEvent.emit(new TransportMessage(data, new VolatileTransportMetadata(_.map(metadata, (data, key) => new VolatileTransportMetadataFrame(key, data)))));
+
         return { data, metadata };
     }
     public async receiveTagged(messageId: string) {
@@ -422,6 +423,8 @@ export class DealerClientTransport extends AClientTransport implements IDealerCl
         const data = message.payload;
         const metadata = { ...message.frames };
 
+        this.messageReceivedEvent.emit(new TransportMessage(data, new VolatileTransportMetadata(_.map(metadata, (data, key) => new VolatileTransportMetadataFrame(key, data)))));
+
         return { data, metadata };
     }
 
@@ -433,6 +436,8 @@ export class DealerClientTransport extends AClientTransport implements IDealerCl
         const data = message.payload;
 
         const metadata = { ...message.frames };
+
+        this.messageReceivedEvent.emit(new TransportMessage(data, new VolatileTransportMetadata(_.map(metadata, (data, key) => new VolatileTransportMetadataFrame(key, data)))));
 
         return { tag, data, metadata };
     }
@@ -449,6 +454,8 @@ export class DealerClientTransport extends AClientTransport implements IDealerCl
         const frames = { ...metadata };
         frames['rid'] = encodedRid;
 
+        this.messageSentEvent.emit(new TransportMessage(data, new VolatileTransportMetadata(_.map(frames, (data, key) => new VolatileTransportMetadataFrame(key, data)))));
+
         const message = new Message(0, frames, data);
         this.socket.send(message.toZeroMQMessage(true));
 
@@ -462,6 +469,8 @@ export class DealerClientTransport extends AClientTransport implements IDealerCl
 
             const responsePayloadData = responseMessage.payload;
             const responseMetadata = { ...responseMessage.frames };
+
+            this.messageReceivedEvent.emit(new TransportMessage(responsePayloadData, new VolatileTransportMetadata(_.map(responseMetadata, (data, key) => new VolatileTransportMetadataFrame(key, data)))));
 
             return new ReceivedData(responsePayloadData, responseMetadata);
         });
