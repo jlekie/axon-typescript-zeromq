@@ -678,10 +678,10 @@ function toTransportMessage(frames: Buffer[]) {
     if (signal !== 0)
         throw new Error(`Message received with signal code ${signal}`);
 
+    let partBuffer: Buffer[] = [];
     for (let a = 1; a < frames.length; a++) {
         const frame = frames[a];
 
-        let partBuffer: Buffer[] = [];
         if (frame.length === 0 || a >= frames.length - 1) {
             if (partBuffer.length === 2) {
                 const name = partBuffer[0].toString('ascii');
@@ -756,7 +756,7 @@ function toNetMQMessage(message: TransportMessage, envelope?: Buffer) {
         zeroMQMessage.push(envelope);
 
     const signalBuffer = Buffer.alloc(4);
-    signalBuffer.writeInt32BE(this.signal, 0);
+    signalBuffer.writeInt32BE(0, 0);
     zeroMQMessage.push(signalBuffer);
 
     for (const frame of message.metadata.frames) {
@@ -765,7 +765,7 @@ function toNetMQMessage(message: TransportMessage, envelope?: Buffer) {
         zeroMQMessage.push(Buffer.alloc(0));
     }
 
-    zeroMQMessage.push(this.payload);
+    zeroMQMessage.push(message.payload);
 
     return zeroMQMessage;
 }
