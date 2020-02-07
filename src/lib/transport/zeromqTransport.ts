@@ -338,14 +338,14 @@ export class DealerClientTransport extends AClientTransport implements IDealerCl
     }
 
     public async receive() {
-        const message = await this.getBufferedData();
+        const message = await this.getBufferedData(30000);
 
         this.messageReceivedEvent.emit(message);
 
         return message;
     }
     public async receiveTagged(messageId: string) {
-        const message = await this.getTaggedBufferedData(messageId);
+        const message = await this.getTaggedBufferedData(messageId, 30000);
 
         this.messageReceivedEvent.emit(message);
 
@@ -353,7 +353,7 @@ export class DealerClientTransport extends AClientTransport implements IDealerCl
     }
 
     public async receiveBufferedTagged() {
-        const taggedMessage = await this.getNextTaggedBufferedData();
+        const taggedMessage = await this.getNextTaggedBufferedData(30000);
 
         this.messageReceivedEvent.emit(taggedMessage.message);
 
@@ -376,7 +376,7 @@ export class DealerClientTransport extends AClientTransport implements IDealerCl
         this.messageSentEvent.emit(forwardedMessage);
 
         return Promise.resolve(async () => {
-            const responseMessage = await this.getTaggedBufferedData(rid);
+            const responseMessage = await this.getTaggedBufferedData(rid, 30000);
 
             this.messageReceivedEvent.emit(responseMessage);
 
