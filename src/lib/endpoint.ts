@@ -65,8 +65,8 @@ export class TcpClientEndpoint extends AZeroMQServerEndpoint {
         const parsedUrl = Url.parse(url);
 
         switch (parsedUrl.protocol) {
-            case 'zmq':
-            case 'tcp':
+            case 'zmq:':
+            case 'tcp:':
                 if (!parsedUrl.hostname || !parsedUrl.port)
                     throw new Error('Invalid url');
 
