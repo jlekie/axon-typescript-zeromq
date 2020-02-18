@@ -1,4 +1,5 @@
 import * as Net from 'net';
+import * as Url from 'url';
 
 import { AServerEndpoint, AClientEndpoint, AEndpointDecoder, IEndpoint, IServerEndpoint, IClientEndpoint, IEncodableEndpoint } from '@jlekie/axon';
 
@@ -60,6 +61,23 @@ export abstract class AZeroMQClientEndpoint extends AClientEndpoint implements I
 }
 
 export class TcpClientEndpoint extends AZeroMQServerEndpoint {
+    public static fromUrl(url: string) {
+        const parsedUrl = Url.parse(url);
+
+        switch (parsedUrl.protocol) {
+            case 'zmq':
+            case 'tcp':
+                if (!parsedUrl.hostname || !parsedUrl.port)
+                    throw new Error('Invalid url');
+
+                const port = parseInt(parsedUrl.port);
+
+                return new this(parsedUrl.hostname, port);
+            default:
+                throw new Error(`Invalid protocol ${parsedUrl.protocol}`);
+        }
+    }
+
     public readonly hostname: string;
     public readonly port: number;
 
