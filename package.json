@@ -1,6 +1,6 @@
 {
   "name": "@jlekie/axon-zeromq",
-  "version": "1.0.0-alpha.1",
+  "version": "1.0.0-alpha.3",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "author": "Joe Lekie",
@@ -10,6 +10,7 @@
     "watch": "tsc --watch"
   },
   "devDependencies": {
+    "@types/lodash": "4.14.157",
     "@types/node": "12.7.5",
     "@types/uuid": "3.4.5",
     "@types/zeromq": "4.6.2",
@@ -19,7 +20,8 @@
     "typescript": "3.6.3"
   },
   "dependencies": {
-    "@jlekie/axon": "1.0.0-alpha.1",
+    "@jlekie/axon": "1.0.0-alpha.3",
+    "lodash": "4.17.19",
     "uuid": "3.3.3",
     "zeromq": "5.1.0"
   },
