@@ -390,16 +390,21 @@ export class DealerClientTransport extends AClientTransport implements IDealerCl
                 this.socket = ZeroMQ.socket('dealer');
 
                 this.socket.on('message', (...frames) => {
-                    const message = toTransportMessage(frames);
+                    try {
+                        const message = toTransportMessage(frames);
 
-                    const encodedRid = message.metadata.find(`rid[${this.identity}]`);
-                    if (encodedRid) {
-                        const rid = encodedRid.toString('ascii');
-
-                        this.taggedReceiveBuffer.set(rid, message);
+                        const encodedRid = message.metadata.find(`rid[${this.identity}]`);
+                        if (encodedRid) {
+                            const rid = encodedRid.toString('ascii');
+    
+                            this.taggedReceiveBuffer.set(rid, message);
+                        }
+                        else {
+                            this.receiveBuffer.push(message);
+                        }
                     }
-                    else {
-                        this.receiveBuffer.push(message);
+                    catch (err) {
+                        console.log(`Message received error [${err.toString()}]`);
                     }
                 });
 
