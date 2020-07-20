@@ -1,6 +1,6 @@
 import * as _ from 'lodash';
 import * as ZeroMQ from 'zeromq';
-import * as UuidV4 from 'uuid/v4';
+import { v4 as UuidV4 } from 'uuid';
 
 import { ITransport, IClientTransport, IServerTransport, AClientTransport, AServerTransport, IReceivedData, ReceivedData, TransportMessage, VolatileTransportMetadata, VolatileTransportMetadataFrame, TaggedTransportMessage } from '@jlekie/axon';
 import { IZeroMQServerEndpoint, IZeroMQClientEndpoint } from '../endpoint';

@@ -12,7 +12,7 @@
   "devDependencies": {
     "@types/lodash": "4.14.157",
     "@types/node": "12.12.50",
-    "@types/uuid": "3.4.9",
+    "@types/uuid": "8.0.0",
     "@types/zeromq": "4.6.2",
     "ts-essentials": "3.0.5",
     "ts-node": "8.10.2",
@@ -22,7 +22,7 @@
   "dependencies": {
     "@jlekie/axon": "1.0.0-alpha.3",
     "lodash": "4.17.19",
-    "uuid": "3.4.0",
+    "uuid": "8.2.0",
     "zeromq": "5.1.0"
   },
   "files": [
