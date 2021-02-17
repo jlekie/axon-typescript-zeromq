@@ -564,7 +564,7 @@ export class DealerClientTransport extends AClientTransport implements IDealerCl
 }
 
 async function delay(delay: number) {
-    await new Promise((resolve) => setTimeout(() => resolve(), delay));
+    await new Promise<void>((resolve) => setTimeout(() => resolve(), delay));
 }
 async function defer() {
     // await new Promise((resolve) => process.nextTick(() => {
@@ -572,7 +572,7 @@ async function defer() {
     //     resolve()
     // }));
 
-    await new Promise((resolve) => setImmediate(() => resolve()));
+    await new Promise<void>((resolve) => setImmediate(() => resolve()));
 }
 
 class Message {
