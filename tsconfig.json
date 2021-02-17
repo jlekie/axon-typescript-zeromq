@@ -1,0 +1,22 @@
+{
+    "compilerOptions": {
+        "newLine": "LF",
+        "module": "commonjs",
+        "moduleResolution": "node",
+        "target": "esnext",
+        "strictPropertyInitialization": true,
+        "noImplicitAny": true,
+        "removeComments": true,
+        "preserveConstEnums": true,
+        "strictNullChecks": true,
+        "declaration": true,
+        "sourceMap": true,
+        "skipLibCheck": true,
+
+        "baseUrl": "src",
+        "outDir": "dist",
+        "incremental": true,
+        "tsBuildInfoFile": "tsconfig.tsbuildinfo"
+    },
+    "include": [ "src" ]
+}

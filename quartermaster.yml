@@ -1,0 +1,6 @@
+module: "@jlekie/quartermaster/modules/delegate"
+keys:
+  - typescript
+orders:
+  - name: build
+    cmd: ${NPM_EXEC} build
